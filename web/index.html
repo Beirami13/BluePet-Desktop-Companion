@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue Pet</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+
+<body>
+<main id="pet-container">
+
+    <!-- Speech bubble -->
+    <div id="bubble"></div>
+
+    <!-- Drag area -->
+    <div id="drag-handle" title="Move Blue Pet"></div>
+
+    <div id="pet" class="pet normal">
+
+        <!-- Thinking bubbles -->
+        <div class="think">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+        </div>
+
+        <div class="head">
+            <div class="face">
+
+                <div class="eyes">
+                    <div class="eye-wrap l">
+                        <div class="eye left-eye"><div class="pupil"></div></div>
+                        <div class="tear"></div>
+                    </div>
+                    <div class="eye-wrap r">
+                        <div class="eye right-eye"><div class="pupil"></div></div>
+                        <div class="tear"></div>
+                    </div>
+                </div>
+
+                <div class="mouth"></div>
+
+            </div>
+        </div>
+        <div class="shadow"></div>
+    </div>
+
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
