@@ -20,8 +20,12 @@ except Exception as error:
     HAS_MEDIA = False
 
 from voice import VoiceEngine, PLAYBACK_RATE
+from offline_tools import OfflineTools, PUBLIC_API
 
 STATE_FILE = Path(__file__).parent / "pet_state.json"
+
+PET_SIZE = (260, 280)       # window size with only the pet
+DESK_SIZE = (700, 540)      # window size while the Student Desk panel is open
 
 
 class DebugPage(QWebEnginePage):
@@ -85,13 +89,23 @@ class PetBridge(QObject):
         print("[move] goHome called from JavaScript")
         self.window.go_home()
 
+    # ----- Student Desk (offline tools) -----
+
+    @Slot(str, str, result=str)
+    def callTool(self, name, args_json):
+        return self.window.run_tool(name, args_json)
+
+    @Slot(bool)
+    def setDeskOpen(self, is_open):
+        self.window.set_desk_open(is_open)
+
 
 class BluePetWindow(QWidget):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Blue Pet")
-        self.resize(260, 280)
+        self.resize(*PET_SIZE)
 
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -124,13 +138,24 @@ class BluePetWindow(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.browser)
 
-        screen = QApplication.primaryScreen()
-        area = screen.availableGeometry()
-        self.home_pos = QPoint(
-            area.right() - self.width() - 30,
-            area.bottom() - self.height() - 30,
-        )
+        self.home_pos = self._compute_home()
         self.move(self.home_pos)
+
+        # Student Desk: offline tools (SQLite) + clipboard history
+        self.desk_open = False
+        try:
+            self.tools = OfflineTools()
+        except Exception as error:
+            print("[tools] could not open the database:", error)
+            self.tools = None
+
+        self.clipboard = QApplication.clipboard()
+        self.clipboard.dataChanged.connect(self._on_clipboard_changed)
+
+        # Keeps a running study timer safe if the app is killed
+        self.heartbeat_timer = QTimer(self)
+        self.heartbeat_timer.timeout.connect(self._heartbeat)
+        self.heartbeat_timer.start(20000)
 
         # Moving by voice
         self.move_anim = None
@@ -196,7 +221,7 @@ class BluePetWindow(QWidget):
 
     @staticmethod
     def _clean_old_audio():
-        for old in Path(tempfile.gettempdir()).glob("bluepet_*.mp3"):
+        for old in Path(tempfile.gettempdir()).glob("bluepet_*.*"):
             try:
                 old.unlink()
             except Exception:
@@ -292,10 +317,108 @@ class BluePetWindow(QWidget):
 
         self._animate_to(QPoint(x, y))
 
+    def _compute_home(self):
+        area = QApplication.primaryScreen().availableGeometry()
+        return QPoint(
+            area.right() - self.width() - 30,
+            area.bottom() - self.height() - 30,
+        )
+
     def go_home(self):
+        self.home_pos = self._compute_home()      # the window size changes with the desk
         self._animate_to(self.home_pos)
 
+    # ---------- Student Desk ----------
+
+    def set_desk_open(self, is_open):
+        """Grows the window (to the left and up) for the panel, or shrinks it back."""
+        is_open = bool(is_open)
+        if is_open == self.desk_open:
+            return
+        self.desk_open = is_open
+
+        self._move_id += 1                        # cancel a pending "safety net" move
+        if self.move_anim is not None:
+            self.move_anim.stop()
+
+        geo = self.geometry()
+        screen = QApplication.screenAt(geo.center()) or QApplication.primaryScreen()
+        area = screen.availableGeometry()
+
+        new_w, new_h = DESK_SIZE if is_open else PET_SIZE
+        new_w = min(new_w, area.width())
+        new_h = min(new_h, area.height())
+
+        # Keep the bottom-right corner (where the pet stands) in place
+        x = geo.x() + geo.width() - new_w
+        y = geo.y() + geo.height() - new_h
+        x = max(area.left(), min(x, area.right() - new_w + 1))
+        y = max(area.top(), min(y, area.bottom() - new_h + 1))
+        self.setGeometry(x, y, new_w, new_h)
+
+        if is_open:
+            self.raise_()
+            self.activateWindow()
+            self.browser.setFocus()
+
+    def run_tool(self, name, args_json):
+        """Runs one offline tool for JavaScript. Always returns a JSON string."""
+        def reply(ok, **fields):
+            return json.dumps({"ok": ok, **fields}, ensure_ascii=False)
+
+        if self.tools is None:
+            return reply(False, error="The offline tools could not open their database")
+        if name not in PUBLIC_API:
+            return reply(False, error="Unknown tool")
+
+        try:
+            args = json.loads(args_json or "[]")
+            if not isinstance(args, list):
+                raise ValueError("Bad arguments")
+
+            if name == "clipboard_activate":
+                text = self.tools.clipboard_activate(*args)
+                self.clipboard.setText(text)
+                return reply(True, data=True)
+
+            return reply(True, data=getattr(self.tools, name)(*args))
+        except ValueError as error:               # readable mistakes (empty note, bad date...)
+            return reply(False, error=str(error))
+        except Exception as error:
+            print(f"[tools] {name} failed:", error)
+            return reply(False, error="Something went wrong")
+
+    def _send_desk_event(self, kind):
+        if not self.page_loaded:
+            return
+        self.browser.page().runJavaScript(
+            f"window.deskEvent && window.deskEvent({json.dumps(kind)});"
+        )
+
+    def _on_clipboard_changed(self):
+        if self.tools is None:
+            return
+        try:
+            mime = self.clipboard.mimeData()
+            if mime is None or not mime.hasText():
+                return
+            if mime.hasFormat("x-kde-passwordManagerHint"):   # password managers mark secrets
+                return
+            if self.tools.clipboard_add(mime.text()):
+                self._send_desk_event("clipboard")
+        except Exception as error:
+            print("[clipboard] could not read the clipboard:", error)
+
+    def _heartbeat(self):
+        if self.tools is not None:
+            try:
+                self.tools.heartbeat()
+            except Exception as error:
+                print("[tools] heartbeat error:", error)
+
     def closeEvent(self, event):
+        if self.tools is not None:
+            self.tools.close()
         self.voice.stop()
         self._release_audio()
         super().closeEvent(event)

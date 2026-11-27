@@ -9,7 +9,95 @@
 </head>
 
 <body>
+
+    <!-- Student Desk panel (opened with the P key or by voice) -->
+    <section id="desk" hidden aria-label="Student Desk">
+        <header id="desk-head">
+            <span class="desk-title" data-i18n="deskTitle">Student Desk</span>
+            <span class="desk-keys">P · Esc</span>
+            <button id="desk-close" class="icon-btn" type="button" data-i18n-title="close" title="Close (Esc)">✕</button>
+        </header>
+
+        <nav id="desk-tabs" role="tablist">
+            <button class="tab" type="button" data-tab="notes" data-i18n="tabNotes">Notes</button>
+            <button class="tab" type="button" data-tab="tasks" data-i18n="tabTasks">Tasks</button>
+            <button class="tab" type="button" data-tab="study" data-i18n="tabStudy">Study</button>
+            <button class="tab" type="button" data-tab="calc" data-i18n="tabCalc">Calc</button>
+            <button class="tab" type="button" data-tab="clipboard" data-i18n="tabClip">Clipboard</button>
+        </nav>
+
+        <div id="desk-body">
+
+            <!-- Notes -->
+            <div class="tab-panel" id="tab-notes">
+                <input id="note-title" type="text" maxlength="200" data-i18n-ph="noteTitlePh" placeholder="Title (optional)">
+                <textarea id="note-body" data-i18n-ph="noteBodyPh" placeholder="Write your note here…"></textarea>
+                <div class="row">
+                    <button id="note-save" class="btn primary" type="button" data-i18n="noteSave">Save</button>
+                    <button id="note-new" class="btn" type="button" data-i18n="noteNew">New note</button>
+                    <span class="muted grow" data-i18n="noteHint">Ctrl+Enter to save</span>
+                </div>
+                <input id="note-search" type="search" data-i18n-ph="noteSearchPh" placeholder="Search notes…">
+                <div id="notes-list" class="list"></div>
+            </div>
+
+            <!-- Tasks -->
+            <div class="tab-panel" id="tab-tasks">
+                <div class="row">
+                    <input id="task-title" class="grow" type="text" maxlength="300" data-i18n-ph="taskPh" placeholder="New task…">
+                    <input id="task-due" type="date" data-i18n-title="dueLabel" title="Due date">
+                    <button id="task-add" class="btn primary" type="button" data-i18n="taskAdd">Add</button>
+                </div>
+                <div class="row">
+                    <span id="task-count" class="muted grow"></span>
+                    <button id="task-clear" class="btn small" type="button" data-i18n="clearDone">Clear completed</button>
+                </div>
+                <div id="tasks-list" class="list"></div>
+            </div>
+
+            <!-- Study tracker -->
+            <div class="tab-panel" id="tab-study">
+                <input id="study-subject" type="text" maxlength="80" data-i18n-ph="studyPh" placeholder="What are you studying? (optional)">
+                <div id="study-clock">00:00:00</div>
+                <div id="study-state" class="muted center"></div>
+                <button id="study-toggle" class="btn primary big" type="button" data-i18n="studyStart">Start</button>
+                <button id="study-badge-toggle" class="btn small" type="button" data-i18n="badgeToggle">Show timer on the pet</button>
+
+                <h4 class="section" data-i18n="todayLabel">Today</h4>
+                <div id="study-today"></div>
+
+                <h4 class="section" data-i18n="weekLabel">Last 7 days</h4>
+                <div id="study-week"></div>
+                <div id="study-bars"></div>
+            </div>
+
+            <!-- Calculator -->
+            <div class="tab-panel" id="tab-calc">
+                <input id="calc-input" type="text" dir="ltr" maxlength="200" autocomplete="off" spellcheck="false" data-i18n-ph="calcPh" placeholder="2*(3+4)">
+                <div id="calc-result" dir="ltr">&nbsp;</div>
+                <div id="calc-keys" dir="ltr"></div>
+                <div class="muted" data-i18n="calcHint">Trig functions use radians: sin(radians(30))</div>
+                <div id="calc-history" class="list short"></div>
+            </div>
+
+            <!-- Clipboard history -->
+            <div class="tab-panel" id="tab-clipboard">
+                <div class="row">
+                    <input id="clip-search" class="grow" type="search" data-i18n-ph="clipSearchPh" placeholder="Search copied text…">
+                    <button id="clip-toggle" class="btn small" type="button"></button>
+                    <button id="clip-clear" class="btn small" type="button" data-i18n="clipClear">Clear all</button>
+                </div>
+                <div class="muted" data-i18n="clipHint">Click an item to copy it again</div>
+                <div id="clip-list" class="list"></div>
+            </div>
+
+        </div>
+
+        <div id="desk-toast"></div>
+    </section>
+
 <main id="pet-container">
+    <div id="study-badge" hidden>00:00:00</div>
 
     <!-- Speech bubble -->
     <div id="bubble"></div>
